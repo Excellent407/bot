@@ -1,11 +1,13 @@
 from flask import Flask, request, send_file, render_template_string
-import os, zipfile, subprocess, shutil
+import os, zipfile, shutil
+from realesrgan import RealESRGAN
+from PIL import Image
 
 # ---------------- Settings ----------------
 UPLOAD_FOLDER = "uploads"
 EXTRACT_FOLDER = "input_pngs"
 OUTPUT_FOLDER = "enhanced_pngs"
-INPUT_ZIP = "input.zip"                 # ZIP in repo
+INPUT_ZIP = "input.zip"        # ZIP in repo
 OUTPUT_ZIP = "enhanced_output.zip"
 
 # ---------------- Flask Setup ----------------
@@ -16,7 +18,7 @@ UPLOAD_PAGE = """
 <!doctype html>
 <title>PNG Enhancer</title>
 <h2>PNG Enhancer Bot</h2>
-<p>If you want to use a different ZIP, upload below:</p>
+<p>Upload a ZIP file to enhance:</p>
 <form method=post enctype=multipart/form-data action="/upload">
   <input type=file name=file>
   <input type=submit value="Upload & Enhance">
@@ -77,6 +79,10 @@ def enhance_zip(zip_path):
     with zipfile.ZipFile(zip_path, 'r') as zip_ref:
         zip_ref.extractall(EXTRACT_FOLDER)
     
+    # Initialize Real-ESRGAN
+    model = RealESRGAN(device='cpu', scale=4)  # use device='cuda' if GPU available
+    model.load_weights('realesrgan-x4.pth', download=True)
+    
     # Recursively enhance PNGs
     for root, dirs, files in os.walk(EXTRACT_FOLDER):
         for f in files:
@@ -88,13 +94,10 @@ def enhance_zip(zip_path):
                 out_path = os.path.join(OUTPUT_FOLDER, rel_path)
                 os.makedirs(os.path.dirname(out_path), exist_ok=True)
                 
-                subprocess.run([
-                    "python", "Real-ESRGAN/inference_realesrgan.py",
-                    "-i", in_path,
-                    "-o", out_path,
-                    "-n", "RealESRGAN_x4",
-                    "-s", "4"
-                ])
+                # Open image and enhance
+                img = Image.open(in_path).convert("RGB")
+                sr_img = model.predict(img)
+                sr_img.save(out_path)
     
     # Re-zip enhanced images
     with zipfile.ZipFile(OUTPUT_ZIP, 'w') as zipf:

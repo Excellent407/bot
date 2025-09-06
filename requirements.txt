@@ -1,5 +1,5 @@
 Flask==2.3.3
-torch==2.2.0+cu118  # Use +cpu if your instance has no GPU
+torch==2.8.0           # latest stable PyTorch for Python 3.13
 opencv-python==4.8.1
 Pillow==10.1.0
 basicsr==1.4.2
